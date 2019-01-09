@@ -147,12 +147,12 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
         toolpath = os.path.join(BASE_DIR, toolname)
         try:
             ret = subprocess.check_output(
-                [toolpath, dllpath, clsid, iid, count])
+                [toolpath, dllpath, clsid, iid, count], shell=True)
         except subprocess.CalledProcessError, e:
             return [
                 'LoadDll fail', 'GetProc fail', 'GetClass fail',
                 'CreateInstance fail'
-            ][e.returncode + 1]
+            ][e.returncode - 1] + ' for clsid:{} iid:{}'.format(clsid,iid)
         vas = []
         imagebase = ida_nalt.get_imagebase()
 
@@ -179,22 +179,17 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
             print('{} is not COM! LoadTypeLib fail'.format(dllpath))
             return
         classes = {}
-
-        for i in range(tlb.GetTypeInfoCount()):
-            if tlb.GetTypeInfoType(i) == pythoncom.TKIND_COCLASS:
-                classes[tlb.GetDocumentation(i)[0]] = str(
-                    tlb.GetTypeInfo(i).GetTypeAttr().iid)
         values = []
         for i in range(tlb.GetTypeInfoCount()):
-            if tlb.GetTypeInfoType(i) in [
-                    pythoncom.TKIND_DISPATCH, pythoncom.TKIND_INTERFACE
-            ]:
-                typeinfo = tlb.GetTypeInfo(i)
-                attr = typeinfo.GetTypeAttr()
-                name = tlb.GetDocumentation(i)[0]
-                iid = str(attr.iid)
-                clsid = classes.get(name[1:], None)
-                if clsid:
+            if tlb.GetTypeInfoType(i) == pythoncom.TKIND_COCLASS:
+                ctypeinfo = tlb.GetTypeInfo(i)
+                clsid = str(ctypeinfo.GetTypeAttr().iid)
+                for j in range(ctypeinfo.GetTypeAttr().cImplTypes):
+                    typeinfo = ctypeinfo.GetRefTypeInfo(
+                        ctypeinfo.GetRefTypeOfImplType(j))
+                    attr = typeinfo.GetTypeAttr()
+                    name = tlb.GetDocumentation(i)[0]
+                    iid = str(attr.iid)
                     vas = self.get_com_vas(
                         dllpath.encode(locale.getdefaultlocale()[1]), clsid,
                         iid, str(attr.cFuncs))
@@ -207,7 +202,6 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
                             funname_ext = "{}_{}_{}".format(
                                 name, funnames[0],
                                 invokekinds[fundesc.invkind])
-
                             typ, flags, default = fundesc.rettype
                             desc = ''
                             if fundesc.invkind == pythoncom.INVOKE_FUNC:
