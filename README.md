@@ -29,3 +29,13 @@
 1. 将bin目录三个文件复制到插件目录
 
     默认情况下，在这个目录：`C:\Program Files\IDA 7.0\plugins`
+
+1. 删除或备份插件目录原始的`comhelper.dll`和`comhelper64.dll`文件
+
+## 更新记录
+
+1. 2020-4-8
+
+    1. 重新编译去除运行库依赖，解决丢失MSVCR90.dll等问题
+
+    1. 增加说明，解决IDA自带comhelper导致本插件无法使用的问题
