@@ -1,11 +1,10 @@
 import os
-import sys
-import locale
 import subprocess
 import pythoncom
 import idaapi
 import idautils
 import idc
+import ida_nalt
 
 invokekinds = {
     pythoncom.INVOKE_FUNC: "func",
@@ -68,7 +67,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 p_initialized = False
 
 
-class ComHelperResultChooser(idaapi.Choose2):
+class ComHelperResultChooser(idaapi.Choose):
     def __init__(self,
                  title,
                  items,
@@ -77,13 +76,13 @@ class ComHelperResultChooser(idaapi.Choose2):
                  height=None,
                  embedded=False,
                  modal=False):
-        idaapi.Choose2.__init__(
+        idaapi.Choose.__init__(
             self,
             title, [
-                ["Address", idaapi.Choose2.CHCOL_HEX | 10],
-                ["Function", idaapi.Choose2.CHCOL_PLAIN | 25],
-                ["Parent", idaapi.Choose2.CHCOL_PLAIN | 25],
-                ["Desc", idaapi.Choose2.CHCOL_PLAIN | 40],
+                ["Address", idaapi.CHCOL_HEX | 10],
+                ["Function", idaapi.CHCOL_PLAIN | 25],
+                ["Parent", idaapi.CHCOL_PLAIN | 25],
+                ["Desc", idaapi.CHCOL_PLAIN | 40],
             ],
             flags=flags,
             width=width,
@@ -98,7 +97,7 @@ class ComHelperResultChooser(idaapi.Choose2):
 
     def OnSelectLine(self, n):
         self.selcount += 1
-        idc.Jump(self.items[n][0])
+        idc.jumpto(self.items[n][0])
 
     def OnGetLine(self, n):
         res = self.items[n]
@@ -113,9 +112,9 @@ class ComHelperResultChooser(idaapi.Choose2):
         return self.Show() >= 0
 
 
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Plugin
-#--------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 class Comhelper_Plugin_t(idaapi.plugin_t):
     comment = "Comhelper plugin for IDA Pro"
     help = "Comhelper"
@@ -147,15 +146,14 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
         toolpath = os.path.join(BASE_DIR, toolname)
         try:
             ret = subprocess.check_output(
-                [toolpath, dllpath, clsid, iid, count], shell=True)
-        except subprocess.CalledProcessError, e:
+                [toolpath, dllpath, clsid, iid, count], shell=True).decode('ascii')
+        except subprocess.CalledProcessError as e:
             return [
                 'LoadDll fail', 'GetProc fail', 'GetClass fail',
                 'CreateInstance fail'
-            ][e.returncode - 1] + ' for clsid:{} iid:{}'.format(clsid,iid)
+            ][e.returncode - 1] + ' for clsid:{} iid:{}'.format(clsid, iid)
         vas = []
         imagebase = ida_nalt.get_imagebase()
-
         for rvahex in ret.split('\n'):
             rvahex = rvahex.strip()
             if rvahex:
@@ -169,7 +167,7 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
             'DllUnregisterServer', 'DllEntryPoint', 'DllGetClassObject',
             'DllCanUnloadNow', 'DllRegisterServer'
         ])
-        dllpath = ida_nalt.get_input_file_path().decode('utf-8')
+        dllpath = ida_nalt.get_input_file_path()
         if not comexports.issubset(exports):
             print('{} is not COM! exports mismatching'.format(dllpath))
             return
@@ -178,7 +176,6 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
         except:
             print('{} is not COM! LoadTypeLib fail'.format(dllpath))
             return
-        classes = {}
         values = []
         for i in range(tlb.GetTypeInfoCount()):
             if tlb.GetTypeInfoType(i) == pythoncom.TKIND_COCLASS:
@@ -191,8 +188,8 @@ class Comhelper_Plugin_t(idaapi.plugin_t):
                     name = tlb.GetDocumentation(i)[0]
                     iid = str(attr.iid)
                     vas = self.get_com_vas(
-                        dllpath.encode(locale.getdefaultlocale()[1]), clsid,
-                        iid, str(attr.cFuncs))
+                        dllpath, clsid, iid, str(attr.cFuncs)
+                    )
                     if isinstance(vas, str):
                         print(vas)
                     else:

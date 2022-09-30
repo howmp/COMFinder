@@ -22,18 +22,20 @@
 
 1. 安装IDA的时候，要勾选IDAPython
 
-1. 用IDAPython的pip，安装pywin32
-
-    默认情况下，使用命令：`C:\python27-x64\Scripts\pip.exe install pywin32`
+1. 安装pywin32`pip install pywin32`
 
 1. 将bin目录三个文件复制到插件目录
 
-    默认情况下，在这个目录：`C:\Program Files\IDA 7.0\plugins`
+    默认情况下，在这个目录：`C:\Program Files\IDA 7.6\plugins`
 
 1. 删除或备份插件目录原始的`comhelper.dll`和`comhelper64.dll`文件
 
 ## 更新记录
 
+1. 2022-9-30
+   
+   1. 支持IDA7.6,支持Python3
+   
 1. 2020-4-8
 
     1. 重新编译去除运行库依赖，解决丢失MSVCR90.dll等问题
